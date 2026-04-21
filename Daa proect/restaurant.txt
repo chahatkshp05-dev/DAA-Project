@@ -1,0 +1,218 @@
+import tkinter as tk
+from tkinter import messagebox
+
+# ---------------- DATA ----------------
+restaurants = []
+menu = []
+
+# ---------------- FUNCTIONS ----------------
+
+# Add Restaurant
+def add_restaurant():
+    name = rest_name_entry.get()
+    try:
+        rating = float(rest_rating_entry.get())
+        distance = float(rest_distance_entry.get())
+    except:
+        messagebox.showerror("Error", "Enter valid rating/distance")
+        return
+
+    if name == "":
+        messagebox.showerror("Error", "Enter restaurant name")
+        return
+
+    restaurants.append({"name": name, "rating": rating, "distance": distance})
+    rest_name_entry.delete(0, tk.END)
+    rest_rating_entry.delete(0, tk.END)
+    rest_distance_entry.delete(0, tk.END)
+    messagebox.showinfo("Success", f"Added restaurant: {name}")
+
+# Add Menu Item
+def add_menu_item():
+    name = menu_name_entry.get()
+    try:
+        price = int(menu_price_entry.get())
+        value = int(menu_value_entry.get())
+    except:
+        messagebox.showerror("Error", "Enter valid price/value")
+        return
+
+    if name == "":
+        messagebox.showerror("Error", "Enter menu item name")
+        return
+
+    menu.append({"name": name, "price": price, "value": value})
+    menu_name_entry.delete(0, tk.END)
+    menu_price_entry.delete(0, tk.END)
+    menu_value_entry.delete(0, tk.END)
+    messagebox.showinfo("Success", f"Added menu item: {name}")
+
+# Show Top Restaurants
+def show_top_restaurants():
+    result.delete(1.0, tk.END)
+    if not restaurants:
+        result.insert(tk.END, "No restaurants added yet!\n")
+        return
+    sorted_res = sorted(restaurants, key=lambda x: x["rating"], reverse=True)
+    result.insert(tk.END, "⭐ Top Restaurants:\n\n")
+    for r in sorted_res:
+        result.insert(tk.END, f"{r['name']} | Rating: {r['rating']}\n")
+
+# Find Nearest Restaurant
+def find_nearest():
+    result.delete(1.0, tk.END)
+    if not restaurants:
+        result.insert(tk.END, "No restaurants added yet!\n")
+        return
+    nearest = min(restaurants, key=lambda x: x["distance"])
+    result.insert(tk.END, "📍 Nearest Restaurant:\n\n")
+    result.insert(tk.END, f"{nearest['name']} (Distance: {nearest['distance']} km)\n")
+
+# BFS Explore Restaurants
+def explore():
+    result.delete(1.0, tk.END)
+    if not restaurants:
+        result.insert(tk.END, "No restaurants added yet!\n")
+        return
+    visited = []
+    queue = [restaurants[0]["name"]]
+    while queue:
+        node = queue.pop(0)
+        if node not in visited:
+            visited.append(node)
+            for r in restaurants:
+                if r["name"] not in visited:
+                    queue.append(r["name"])
+    result.insert(tk.END, "🔍 Restaurant Exploration (BFS):\n\n")
+    for r in visited:
+        result.insert(tk.END, f"{r}\n")
+
+# Best Food Combo (0/1 Knapsack + Hill Climbing)
+def best_combo():
+    result.delete(1.0, tk.END)
+    if not menu:
+        result.insert(tk.END, "No menu items added yet!\n")
+        return
+    try:
+        budget = int(entry.get())
+    except:
+        messagebox.showerror("Error", "Enter valid budget")
+        return
+
+    n = len(menu)
+    dp = [[0]*(budget+1) for _ in range(n+1)]
+
+    # 0/1 Knapsack DP Table
+    for i in range(1, n+1):
+        for w in range(budget+1):
+            if menu[i-1]["price"] <= w:
+                dp[i][w] = max(
+                    dp[i-1][w],
+                    menu[i-1]["value"] + dp[i-1][w-menu[i-1]["price"]]
+                )
+            else:
+                dp[i][w] = dp[i-1][w]
+
+    # Traceback to find selected items
+    res = []
+    w = budget
+    for i in range(n, 0, -1):
+        if dp[i][w] != dp[i-1][w]:
+            res.append(menu[i-1])
+            w -= menu[i-1]["price"]
+
+    # Hill Climbing: try adding one more affordable item
+    total_price = sum(item["price"] for item in res)
+    for item in menu:
+        if item not in res and total_price + item["price"] <= budget:
+            res.append(item)
+            total_price += item["price"]
+            break
+
+    # Output
+    combo_str = " + ".join(f"{item['name']} ({item['price']})" for item in res)
+    total_value = sum(item["value"] for item in res)
+    result.insert(tk.END, f"🍕 Best Food Combo for Budget ₹{budget}:\n\n")
+    result.insert(tk.END, f"{combo_str} = value {total_value} ✅\n")
+
+# Clear Output
+def clear_output():
+    result.delete(1.0, tk.END)
+
+# ---------------- GUI ----------------
+root = tk.Tk()
+root.title("🍽 Smart Restaurant System")
+root.geometry("750x700")
+root.config(bg="#fdf6e3")
+
+# Title
+tk.Label(root, text="🍽 Smart Restaurant Recommendation System",
+         font=("Arial", 18, "bold"), bg="#fdf6e3").pack(pady=10)
+
+# ---------------- Add Restaurants ----------------
+rest_frame = tk.LabelFrame(root, text="Add Restaurant", bg="#fff2cc", font=("Arial", 12, "bold"))
+rest_frame.pack(pady=10, padx=10, fill="x")
+
+tk.Label(rest_frame, text="Name:", bg="#fff2cc").grid(row=0, column=0, padx=5, pady=5)
+rest_name_entry = tk.Entry(rest_frame)
+rest_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+tk.Label(rest_frame, text="Rating:", bg="#fff2cc").grid(row=0, column=2, padx=5, pady=5)
+rest_rating_entry = tk.Entry(rest_frame)
+rest_rating_entry.grid(row=0, column=3, padx=5, pady=5)
+
+tk.Label(rest_frame, text="Distance (km):", bg="#fff2cc").grid(row=0, column=4, padx=5, pady=5)
+rest_distance_entry = tk.Entry(rest_frame)
+rest_distance_entry.grid(row=0, column=5, padx=5, pady=5)
+
+tk.Button(rest_frame, text="Add Restaurant", bg="#ffcc66", command=add_restaurant).grid(row=0, column=6, padx=5, pady=5)
+
+# ---------------- Add Menu ----------------
+menu_frame = tk.LabelFrame(root, text="Add Menu Item", bg="#d9ead3", font=("Arial", 12, "bold"))
+menu_frame.pack(pady=10, padx=10, fill="x")
+
+tk.Label(menu_frame, text="Name:", bg="#d9ead3").grid(row=0, column=0, padx=5, pady=5)
+menu_name_entry = tk.Entry(menu_frame)
+menu_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+tk.Label(menu_frame, text="Price:", bg="#d9ead3").grid(row=0, column=2, padx=5, pady=5)
+menu_price_entry = tk.Entry(menu_frame)
+menu_price_entry.grid(row=0, column=3, padx=5, pady=5)
+
+tk.Label(menu_frame, text="Value:", bg="#d9ead3").grid(row=0, column=4, padx=5, pady=5)
+menu_value_entry = tk.Entry(menu_frame)
+menu_value_entry.grid(row=0, column=5, padx=5, pady=5)
+
+tk.Button(menu_frame, text="Add Menu Item", bg="#99ff99", command=add_menu_item).grid(row=0, column=6, padx=5, pady=5)
+
+# ---------------- Budget & Actions ----------------
+input_frame = tk.Frame(root, bg="#fdf6e3")
+input_frame.pack(pady=10)
+
+tk.Label(input_frame, text="Enter Budget (₹):", bg="#fdf6e3").grid(row=0, column=0, padx=5, pady=5)
+entry = tk.Entry(input_frame)
+entry.grid(row=0, column=1, padx=5, pady=5)
+
+btn_frame = tk.Frame(root, bg="#fdf6e3")
+btn_frame.pack(pady=10)
+
+tk.Button(btn_frame, text="⭐ Top Restaurants", width=20,
+          command=show_top_restaurants, bg="#ffcc66").grid(row=0, column=0, padx=5, pady=5)
+
+tk.Button(btn_frame, text="📍 Find Nearest", width=20,
+          command=find_nearest, bg="#66ccff").grid(row=0, column=1, padx=5, pady=5)
+
+tk.Button(btn_frame, text="🔍 Explore (BFS)", width=20,
+          command=explore, bg="#99ff99").grid(row=1, column=0, padx=5, pady=5)
+
+tk.Button(btn_frame, text="🍕 Food Combo", width=20,
+          command=best_combo, bg="#ff9999").grid(row=1, column=1, padx=5, pady=5)
+
+tk.Button(btn_frame, text="🧹 Clear", width=42,
+          command=clear_output, bg="#cccccc").grid(row=2, column=0, columnspan=2, pady=5)
+
+# ---------------- Output ----------------
+result = tk.Text(root, height=20, width=90)
+result.pack(pady=10)
+
+root.mainloop()
